@@ -10,33 +10,50 @@ const client = new Client({
     ],
 });
 
-client.on('ready', () => {
-    console.log("Joshua's Bot - Status 200 ONLINE")
-});
-
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_SECRET_KEY })
 
-client.on('messageCreate', async (message) => {
-    if (message.author.bot) return;
-    if (message.channel.id !== process.env.CHANNEL_ID) return;
-    if (message.content.startsWith('!')) return;
-
-    let conversationLog = [{ role: 'system', content: "You are a friendly and helpful chatbot."}]
-
-    conversationLog.push({
-        role: "user",
-        content: message.content
+client.on('ready', () => {
+    console.log("Joshua's Bot - Status 200 ONLINE");
+    client.guilds.cache.forEach(guild => {
+        guild.commands.create({
+            name: 'ninja',
+            description: 'Start chatting with ChatNinja!'
+        });
+        guild.commands.create({
+            name: 'quit',
+            description: 'Quit ChatNinja'
+        });
     });
+});
 
-    await message.channel.sendTyping();
+client.on('interactionCreate', async (interaction) => {
+    if (!interaction.isCommand()) return;
 
-    const result = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo-0125',
-        messages: conversationLog,
-        max_tokens: 75
-    });
+    const { commandName, channel } = interaction;
 
-    message.reply(result.choices[0].message);
-})
+    if (commandName === 'ninja') {
+        const filter = (message) => !message.author.bot && message.channel.id === channel.id && !message.content.startsWith('!');
+        const collector = channel.createMessageCollector({ filter, time: 600000 });
+
+        collector.on('collect', async (message) => {
+            let conversationLog = [{ role: 'system', content: "You are a friendly and helpful chatbot."}];
+            conversationLog.push({ role: "user", content: message.content });
+
+            await message.channel.sendTyping();
+
+            const result = await openai.chat.completions.create({
+                model: 'gpt-3.5-turbo-0125',
+                messages: conversationLog,
+                max_tokens: 75
+            });
+
+            message.reply(result.choices[0].message);
+        });
+
+        interaction.reply("Hey! I'm ChatNinja. Ask me anything to start chatting!");
+    } else if (commandName === 'quit') {
+        interaction.reply("You've quit ChatNinja. See you soon!");
+    }
+});
 
 client.login(process.env.DISCORD_TOKEN);
