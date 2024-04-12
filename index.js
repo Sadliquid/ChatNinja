@@ -10,7 +10,10 @@ const client = new Client({
     ],
 });
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_SECRET_KEY })
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_SECRET_KEY });
+
+// Variable to track if the bot is currently active
+let botActive = false;
 
 client.on('ready', () => {
     console.log("Joshua's Bot - Status 200 ONLINE");
@@ -32,27 +35,37 @@ client.on('interactionCreate', async (interaction) => {
     const { commandName, channel } = interaction;
 
     if (commandName === 'ninja') {
-        const filter = (message) => !message.author.bot && message.channel.id === channel.id && !message.content.startsWith('!');
-        const collector = channel.createMessageCollector({ filter, time: 600000 });
+        if (!botActive) {
+            const filter = (message) => !message.author.bot && message.channel.id === channel.id && !message.content.startsWith('!');
+            const collector = channel.createMessageCollector({ filter, time: 600000 });
 
-        collector.on('collect', async (message) => {
-            let conversationLog = [{ role: 'system', content: "You are a friendly and helpful chatbot."}];
-            conversationLog.push({ role: "user", content: message.content });
+            collector.on('collect', async (message) => {
+                let conversationLog = [{ role: 'system', content: "You are a friendly and helpful chatbot."}];
+                conversationLog.push({ role: "user", content: message.content });
 
-            await message.channel.sendTyping();
+                await message.channel.sendTyping();
 
-            const result = await openai.chat.completions.create({
-                model: 'gpt-3.5-turbo-0125',
-                messages: conversationLog,
-                max_tokens: 75
+                const result = await openai.chat.completions.create({
+                    model: 'gpt-3.5-turbo-0125',
+                    messages: conversationLog,
+                    max_tokens: 75
+                });
+
+                message.reply(result.choices[0].message);
             });
 
-            message.reply(result.choices[0].message);
-        });
-
-        interaction.reply("Hey! I'm ChatNinja. Ask me anything to start chatting!");
+            botActive = true;
+            interaction.reply("Hey! I'm ChatNinja. Ask me anything to start chatting!");
+        } else {
+            interaction.reply("ChatNinja is already active. You can start chatting!");
+        }
     } else if (commandName === 'quit') {
-        interaction.reply("You've quit ChatNinja. See you soon!");
+        if (botActive) {
+            interaction.reply("You've quit ChatNinja. See you soon!");
+            botActive = false;
+        } else {
+            interaction.reply("ChatNinja is not currently active. You don't need to quit.");
+        }
     }
 });
 
