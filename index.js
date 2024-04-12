@@ -10,67 +10,74 @@ const client = new Client({
     ],
 });
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_SECRET_KEY });
+let active = false;
 
-let botActive = false;
+let timeout = null;
 
-client.on('ready', () => {
-    console.log("Joshua's Bot - Status 200 ONLINE");
-    client.guilds.cache.forEach(guild => {
-        guild.commands.create({
+client.on('ready', async () => {
+    console.log("ChatNinja - Status 200 ONLINE");
+
+    await client.guilds.cache.get(process.env.GUILD_ID)?.commands.set([
+        {
             name: 'ninja',
-            description: 'Start chatting with ChatNinja!'
-        });
-        guild.commands.create({
+            description: 'Start chatting with ChatNinja!',
+        },
+        {
             name: 'quit',
-            description: 'Quit ChatNinja'
-        });
-    });
+            description: 'Quit ChatNinja',
+        },
+    ]);
 });
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_SECRET_KEY });
 
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isCommand()) return;
 
-    const { commandName, channel } = interaction;
-
-    if (commandName === 'ninja') {
-        if (!botActive) {
-            const filter = (message) => !message.author.bot && message.channel.id === channel.id && !message.content.startsWith('!');
-            const collector = channel.createMessageCollector({ filter, time: 600000 });
-
-            collector.on('collect', async (message) => {
-                let conversationLog = [{ role: 'system', content: "You are a friendly and helpful chatbot."}];
-                conversationLog.push({ role: "user", content: message.content });
-
-                await message.channel.sendTyping();
-
-                const result = await openai.chat.completions.create({
-                    model: 'gpt-3.5-turbo-0125',
-                    messages: conversationLog,
-                    max_tokens: 75
-                });
-
-                message.reply(result.choices[0].message);
-            });
-
-            botActive = true;
-            interaction.reply("Hey! I'm ChatNinja. Ask me anything to start chatting!");
-
-            setTimeout(() => {
-                if (!botActive) return;
-                channel.send("ChatNinja has left due to recent inactivity. Use `/ninja` to start ChatNinja again!");
-            }, 600000);
+    if (interaction.commandName === 'ninja') {
+        if (active) {
+            await interaction.reply({ content: "ChatNinja is already active, you can start chatting!", ephemeral: true });
         } else {
-            interaction.reply("ChatNinja is already active. You can start chatting!");
+            active = true;
+            await interaction.reply({ content: "Hey! I'm ChatNinja. Ask me anything to start chatting!", ephemeral: true });
         }
-    } else if (commandName === 'quit') {
-        if (botActive) {
-            interaction.reply("You've quit ChatNinja. See you soon!");
-            botActive = false;
+    } else if (interaction.commandName === 'quit') {
+        if (!active) {
+            await interaction.reply({ content: "ChatNinja has already been quit. You don't need to quit again.", ephemeral: true });
         } else {
-            interaction.reply("ChatNinja is not currently active. You don't need to quit.");
+            active = false;
+            clearTimeout(timeout);
+            await interaction.reply({ content: "ChatNinja quit. See you soon!", ephemeral: true });
         }
     }
 });
 
-client.login(process.env.DISCORD_TOKEN);
+let conversationLog = [{ role: 'system', content: "You are a friendly and helpful chatbot."}]
+
+client.on('messageCreate', async (message) => {
+    if (message.author.bot || !active || message.channel.id !== process.env.CHANNEL_ID || message.content.startsWith('!')) return;
+
+    conversationLog.push({
+        role: "user",
+        content: message.content
+    });
+
+    await message.channel.sendTyping();
+
+    const result = await openai.chat.completions.create({
+        model: 'gpt-3.5-turbo-0125',
+        messages: conversationLog,
+        max_tokens: 75
+    });
+
+    message.reply(result.choices[0].message);
+    conversationLog.push(result.choices[0].message)
+
+    clearTimeout(timeout);
+    timeout = setTimeout(() => {
+        active = false;
+        message.channel.send("ChatNinja has left due to recent inactivity. Use `/ninja` to start chatting again!");
+    }, 600000);
+});
+
+client.login(process.env.DISCORD_TOKEN)
