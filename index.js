@@ -19,7 +19,11 @@ let timeout = null;
 
 client.on('ready', async () => {
     console.log("ChatNinja - Status 200 ONLINE");
-    console.log("Guild ID: " + client.guilds.cache.first().id)
+    if ((client.guilds.cache.first().id) === process.env.GUILD_ID){
+        console.log("Guild ID: " + client.guilds.cache.first().id + " (Sadliquid's server)")
+    } else {
+        console.log("Guild ID: " + client.guilds.cache.first().id)
+    }
 
     app.get('/', (req, res) => {
         res.status(200).send("ChatNinja is online!")
@@ -94,8 +98,6 @@ client.on('messageCreate', async (message) => {
 
     message.reply(result.choices[0].message);
     conversationLog.push(result.choices[0].message)
-
-    console.log(conversationLog)
 
     clearTimeout(timeout);
     timeout = setTimeout(() => {
