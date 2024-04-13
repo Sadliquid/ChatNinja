@@ -11,8 +11,7 @@
   "tasks": {
     "test": {
       "name": "test",
-      "command": "npm run test",
-      "runAtStart": false
+      "command": "npm run test"
     },
     "n": {
       "name": "n",
