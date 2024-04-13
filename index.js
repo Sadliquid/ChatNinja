@@ -16,6 +16,7 @@ let timeout = null;
 
 client.on('ready', async () => {
     console.log("ChatNinja - Status 200 ONLINE");
+    console.log("Guild ID: " + client.guilds.cache.first().id)
 
     await client.guilds.cache.get(process.env.GUILD_ID)?.commands.set([
         {
@@ -52,17 +53,27 @@ client.on('interactionCreate', async (interaction) => {
     }
 });
 
-let conversationLog = [{ role: 'system', content: "You are a friendly and helpful chatbot."}]
+let conversationLog = [{ role: 'system', content: "You are a friendly and helpful chatbot named ChatNinja."}]
 
 client.on('messageCreate', async (message) => {
-    if (message.author.bot || !active || message.channel.id !== process.env.CHANNEL_ID || message.content.startsWith('!')) return;
-
-    conversationLog.push({
-        role: "user",
-        content: message.content
-    });
+    console.log("Message: " + message.content)
+    if (message.author.bot || !active || message.content.startsWith('!')) return;
 
     await message.channel.sendTyping();
+
+    let previousMessages = await message.channel.messages.fetch({ limit: 15 });
+    previousMessages.reverse();
+
+    previousMessages.forEach((msg) => {
+        if (message.content.startsWith('!')) return;
+        if (msg.author.id !== client.user.id && message.author.bot) return;
+        if (msg.author.id !== message.author.id) return;
+
+        conversationLog.push({
+            role: "user",
+            content: msg.content,
+        })
+    });
 
     const result = await openai.chat.completions.create({
         model: 'gpt-3.5-turbo-0125',
@@ -73,11 +84,13 @@ client.on('messageCreate', async (message) => {
     message.reply(result.choices[0].message);
     conversationLog.push(result.choices[0].message)
 
+    console.log(conversationLog)
+
     clearTimeout(timeout);
     timeout = setTimeout(() => {
         active = false;
         message.channel.send("ChatNinja has left due to recent inactivity. Use `/ninja` to start chatting again!");
-    }, 600000);
+    }, 60000);
 });
 
 client.login(process.env.DISCORD_TOKEN)
