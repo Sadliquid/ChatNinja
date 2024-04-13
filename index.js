@@ -103,7 +103,7 @@ client.on('messageCreate', async (message) => {
     timeout = setTimeout(() => {
         active = false;
         message.channel.send("ChatNinja has left due to recent inactivity. Use `/ninja` to start chatting again!");
-    }, 60000);
+    }, 600000);
 });
 
 client.login(process.env.DISCORD_TOKEN)
