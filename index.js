@@ -1,6 +1,9 @@
 require('dotenv/config');
 const { Client, IntentsBitField } = require('discord.js');
 const { OpenAI } = require('openai');
+const express = require('express');
+const app = express();
+const port = 21134;
 
 const client = new Client({
     intents: [
@@ -17,6 +20,14 @@ let timeout = null;
 client.on('ready', async () => {
     console.log("ChatNinja - Status 200 ONLINE");
     console.log("Guild ID: " + client.guilds.cache.first().id)
+
+    app.get('/', (req, res) => {
+        res.status(200).send("ChatNinja is online!")
+    });
+
+    app.listen(port, () => {
+        console.log("ChatNinja is listening at http://localhost:" + port);
+    })
 
     await client.guilds.cache.get(process.env.GUILD_ID)?.commands.set([
         {
