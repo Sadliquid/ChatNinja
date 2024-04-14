@@ -18,12 +18,10 @@ let active = false;
 let timeout = null;
 
 client.on('ready', async () => {
+    const guild = client.guilds.cache.first()
     console.log("ChatNinja - Status 200 ONLINE");
-    if ((client.guilds.cache.first().id) === process.env.GUILD_ID){
-        console.log("Guild ID: " + client.guilds.cache.first().id + " (Sadliquid's server)")
-    } else {
-        console.log("Guild ID: " + client.guilds.cache.first().id)
-    }
+    console.log("Guild ID: " + guild.id)
+    console.log("Guild name: " + guild.name)
 
     app.get('/', (req, res) => {
         res.status(200).send("ChatNinja is online!")
@@ -33,7 +31,7 @@ client.on('ready', async () => {
         console.log("ChatNinja is listening at http://localhost:" + port);
     })
 
-    await client.guilds.cache.get(process.env.GUILD_ID)?.commands.set([
+    await client.guilds.cache.get(guild.id)?.commands.set([
         {
             name: 'ninja',
             description: 'Start chatting with ChatNinja!',
