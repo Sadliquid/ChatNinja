@@ -37,7 +37,7 @@ client.on('ready', async () => {
     //     Name: guild.name,
     //     Status: "Online"
     // });
-    // Basic stable database operation
+    // Basic database operation for setting data
 
     app.get('/', (req, res) => {
         res.status(200).send("ChatNinja is online!")
