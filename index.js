@@ -3,7 +3,17 @@ const { Client, IntentsBitField } = require('discord.js');
 const { OpenAI } = require('openai');
 const express = require('express');
 const app = express();
-const port = 21134;
+const port = process.env.PORT;
+const firebaseAdmin = require('firebase-admin');
+const serviceAccount = require('./serviceAccountKeyCN.json');
+
+firebaseAdmin.initializeApp({
+  credential: firebaseAdmin.credential.cert(serviceAccount),
+  databaseURL: process.env.DATABASE_URL
+});
+
+const database = firebaseAdmin.database();
+
 
 const client = new Client({
     intents: [
@@ -18,12 +28,16 @@ let active = false;
 let timeout = null;
 
 client.on('ready', async () => {
+    const guild = client.guilds.cache.first()
     console.log("ChatNinja - Status 200 ONLINE");
-    if ((client.guilds.cache.first().id) === process.env.GUILD_ID){
-        console.log("Guild ID: " + client.guilds.cache.first().id + " (Sadliquid's server)")
-    } else {
-        console.log("Guild ID: " + client.guilds.cache.first().id)
-    }
+    console.log("Guild ID: " + guild.id)
+    console.log("Guild name: " + guild.name)
+
+    // database.ref('Guilds').child(guild.id).set({
+    //     Name: guild.name,
+    //     Status: "Online"
+    // });
+    // Basic stable database operation
 
     app.get('/', (req, res) => {
         res.status(200).send("ChatNinja is online!")
@@ -33,7 +47,7 @@ client.on('ready', async () => {
         console.log("ChatNinja is listening at http://localhost:" + port);
     })
 
-    await client.guilds.cache.get(process.env.GUILD_ID)?.commands.set([
+    await client.guilds.cache.get(guild.id)?.commands.set([
         {
             name: 'ninja',
             description: 'Start chatting with ChatNinja!',
