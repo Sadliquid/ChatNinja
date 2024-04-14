@@ -3,7 +3,7 @@ const { Client, IntentsBitField } = require('discord.js');
 const { OpenAI } = require('openai');
 const express = require('express');
 const app = express();
-const port = 21134;
+const port = process.env.PORT;
 
 const client = new Client({
     intents: [
