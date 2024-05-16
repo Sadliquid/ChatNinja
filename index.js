@@ -76,8 +76,9 @@ let conversationLog = [
 ]
 
 client.on('messageCreate', async (message) => {
-    console.log("Conversation log: " + JSON.stringify(conversationLog, null, 2));
-    console.log("Message: " + message.content)
+    if (active && (!message.author.bot)) {
+        console.log("User message: " + message.content)
+    }
     if (message.author.bot || !active || message.content.startsWith('!')) return;
 
     await message.channel.sendTyping();
