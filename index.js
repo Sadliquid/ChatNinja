@@ -61,45 +61,55 @@ client.on('interactionCreate', async (interaction) => {
         } else {
             active = false;
             clearTimeout(timeout);
+            conversationLog = [
+                { role: 'system', content: "You are a friendly and helpful chatbot named ChatNinja."},
+                { role: 'system', content: "You should be extremely casual in all conversations and avoid being formal."}
+            ]
             await interaction.reply({ content: "ChatNinja quit. See you soon!", ephemeral: true });
         }
     }
 });
 
-let conversationLog = [{ role: 'system', content: "You are a friendly and helpful chatbot named ChatNinja."}]
+let conversationLog = [
+    { role: 'system', content: "You are a friendly and helpful chatbot named ChatNinja."},
+    { role: 'system', content: "You should be extremely casual in all conversations and avoid being formal."}
+]
 
 client.on('messageCreate', async (message) => {
+    console.log("Conversation log: " + JSON.stringify(conversationLog, null, 2));
     console.log("Message: " + message.content)
     if (message.author.bot || !active || message.content.startsWith('!')) return;
 
     await message.channel.sendTyping();
 
-    let previousMessages = await message.channel.messages.fetch({ limit: 15 });
-    previousMessages.reverse();
+    if (message.content.startsWith('!')) return;
 
-    previousMessages.forEach((msg) => {
-        if (message.content.startsWith('!')) return;
-        if (msg.author.id !== client.user.id && message.author.bot) return;
-        if (msg.author.id !== message.author.id) return;
+    conversationLog.push({
+        role: "user",
+        content: message.content,
+    })
 
-        conversationLog.push({
-            role: "user",
-            content: msg.content,
-        })
-    });
-
-    const result = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo-0125',
-        messages: conversationLog,
-        max_tokens: 75
-    });
-
-    message.reply(result.choices[0].message);
-    conversationLog.push(result.choices[0].message)
+    try {
+        const result = await openai.chat.completions.create({
+            model: 'gpt-3.5-turbo-0125',
+            messages: conversationLog,
+            max_tokens: 75
+        });
+    
+        message.reply(result.choices[0].message);
+        conversationLog.push(result.choices[0].message)
+    } catch (error) {
+        console.error("Error from OpenAI API's Servers:", error);
+        message.reply("Server did not respond. Please come back later and try again.");
+    }
 
     clearTimeout(timeout);
     timeout = setTimeout(() => {
         active = false;
+        conversationLog = [
+            { role: 'system', content: "You are a friendly and helpful chatbot named ChatNinja."},
+            { role: 'system', content: "You should be super casual in all conversations and avoid being formal."}
+        ]
         message.channel.send("ChatNinja has left due to recent inactivity. Use `/ninja` to start chatting again!");
     }, 600000);
 });
