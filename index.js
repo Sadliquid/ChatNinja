@@ -94,7 +94,7 @@ client.on('messageCreate', async (message) => {
         const result = await openai.chat.completions.create({
             model: 'gpt-3.5-turbo-0125',
             messages: conversationLog,
-            max_tokens: 75
+            max_tokens: 500
         });
     
         message.reply(result.choices[0].message);
