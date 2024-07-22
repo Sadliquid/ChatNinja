@@ -92,7 +92,7 @@ client.on('messageCreate', async (message) => {
 
     try {
         const result = await openai.chat.completions.create({
-            model: 'gpt-3.5-turbo-0125',
+            model: 'gpt-4o-mini',
             messages: conversationLog,
             max_tokens: 500
         });
