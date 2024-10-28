@@ -29,6 +29,7 @@ client.on('ready', async () => {
 
     app.listen(port, () => {
         console.log("ChatNinja is listening at http://localhost:" + port);
+        console.log("");
     })
 
     await client.guilds.cache.get(guild.id)?.commands.set([
@@ -76,41 +77,111 @@ let conversationLog = [
 ]
 
 client.on('messageCreate', async (message) => {
-    if (active && (!message.author.bot)) {
-        console.log("User message: " + message.content)
+    if (active && !message.author.bot) {
+        if (message.attachments.size > 0 && message.content) {
+            const attachment = message.attachments.first();
+            if (attachment.contentType && attachment.contentType.startsWith("image/")) {
+                let longImageUrl = attachment.url;
+                console.log("[TEXT]: " + message.content);
+                console.log("[IMAGE]: " + longImageUrl.substring(longImageUrl.lastIndexOf('/') + 1, longImageUrl.indexOf('?')));
+                console.log("---------------------------------------------------------------");
+            } else {
+                await message.reply("The attachment must be an image.");
+                return;
+            }
+        } else if (message.attachments.size > 0) {
+            const attachment = message.attachments.first();
+            if (attachment.contentType && attachment.contentType.startsWith("image/")) {
+                console.log("[IMAGE]: " + attachment.url);
+                console.log("---------------------------------------------------------------");
+            } else {
+                await message.reply("The attachment must be an image.");
+                return;
+            }
+        } else {
+            console.log("[TEXT]: " + message.content);
+            console.log("---------------------------------------------------------------");
+        }
     }
     if (message.author.bot || !active || message.content.startsWith('!')) return;
 
     await message.channel.sendTyping();
 
-    if (message.content.startsWith('!')) return;
+    let imageUrl = null;
+    if (message.attachments.size > 0) {
+        const attachment = message.attachments.first();
+        if (attachment.contentType && attachment.contentType.startsWith("image/")) {
+            // Get the image URL from the attachment
+            imageUrl = attachment.url;
+        } else {
+            await message.reply("The attachment must be an image.");
+            return;
+        }
+    }
 
-    conversationLog.push({
-        role: "user",
-        content: message.content,
-    })
+    // Prepare the message content for the conversation log
+    const userMessage = { role: "user", content: message.content };
+    conversationLog.push(userMessage);
 
     try {
-        const result = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
-            messages: conversationLog,
-            max_tokens: 500
-        });
-    
-        message.reply(result.choices[0].message);
-        conversationLog.push(result.choices[0].message)
+        let result;
+        if (imageUrl) {
+            // If there's both text and an image, send both to the API
+            result = await openai.chat.completions.create({
+                model: 'gpt-4o', // Make sure this is a model that supports multimodal inputs
+                messages: [
+                    ...conversationLog,
+                    {
+                        role: "user",
+                        content: [
+                            { type: "text", text: message.content },
+                            { type: "image_url", image_url: { url: imageUrl } }
+                        ]
+                    }
+                ],
+                max_tokens: 500
+            });
+        } else {
+            // If there's no image, just send the text message
+            result = await openai.chat.completions.create({
+                model: 'gpt-4o',
+                messages: conversationLog,
+                max_tokens: 500
+            });
+        }
+
+        // Reply with the AI's response and add it to the conversation log
+        message.reply(result.choices[0].message.content);
+        conversationLog.push({ role: 'assistant', content: result.choices[0].message.content });
     } catch (error) {
         console.error("Error from OpenAI API's Servers:", error);
-        message.reply("Server did not respond. Please come back later and try again.");
+
+        // Check the type of error and respond accordingly
+        if (error.response) {
+            // If the error has a response from the API
+            await message.reply(`OpenAI API Error: ${error.response.status} - ${error.response.statusText}`);
+        } else if (error.request) {
+            // If the request was made but no response was received
+            await message.reply("No response received from OpenAI API. Please check your internet connection and try again.");
+        } else if (error.message.includes("rate limit")) {
+            // If the error is related to rate limiting
+            await message.reply("The OpenAI API rate limit has been exceeded. Please try again later.");
+        } else if (error.message.includes("network")) {
+            // If the error is network-related
+            await message.reply("A network error occurred. Please check your internet connection and try again.");
+        } else {
+            // For other types of errors
+            await message.reply("An unexpected error occurred. Please try again later.");
+        }
     }
 
     clearTimeout(timeout);
     timeout = setTimeout(() => {
         active = false;
         conversationLog = [
-            { role: 'system', content: "You are a friendly and helpful chatbot named ChatNinja."},
-            { role: 'system', content: "You should be super casual in all conversations and avoid being formal."}
-        ]
+            { role: 'system', content: "You are a friendly and helpful chatbot named ChatNinja." },
+            { role: 'system', content: "You should be super casual in all conversations and avoid being formal." }
+        ];
         message.channel.send("ChatNinja has left due to recent inactivity. Use `/ninja` to start chatting again!");
     }, 600000);
 });
