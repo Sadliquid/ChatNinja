@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@firebase/logger": "^0.4.3",
     "discord.js": "^14.14.1",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
