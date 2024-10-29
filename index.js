@@ -35,8 +35,8 @@ bot.once('ready', async () => {
                 description: 'Start chatting with ChatNinja!',
             },
             {
-                name: 'quit',
-                description: 'Quit ChatNinja',
+                name: 'end',
+                description: 'End chat session',
             },
         ]);
     });
