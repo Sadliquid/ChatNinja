@@ -1,5 +1,5 @@
 require('dotenv/config');
-const { Client, IntentsBitField } = require('discord.js');
+const { Client, IntentsBitField, PermissionsBitField, ChannelType } = require('discord.js');
 const { OpenAI } = require('openai');
 const firebase = require('firebase-admin');
 const express = require('express');
@@ -24,13 +24,11 @@ const bot = new Client({
 bot.once('ready', async () => {
     console.log(`Logged in as ${bot.user.tag}!`);
 
-    // Initialize guild data and set commands in Firebase on bot startup
     bot.guilds.cache.forEach(async (guild) => {
         await db.ref(`guilds/${guild.id}`).set({
             guildName: guild.name
         });
 
-        // Set commands for each guild
         await guild.commands.set([
             {
                 name: 'ninja',
@@ -58,6 +56,11 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_SECRET_KEY });
 bot.on('interactionCreate', async (interaction) => {
     if (!interaction.isCommand()) return;
 
+    if (interaction.channel.name !== 'chatninja') {
+        await interaction.reply({ content: 'Please use ChatNinja in the #chatninja channel.', ephemeral: true });
+        return;
+    }
+
     const guildId = interaction.guild.id;
     const userId = interaction.user.id;
     const username = interaction.user.username;
@@ -65,7 +68,6 @@ bot.on('interactionCreate', async (interaction) => {
 
     const userRef = db.ref(`guilds/${guildId}/users/${userId}`);
 
-    // Ensure user data exists
     const userSnapshot = await userRef.once('value');
     if (!userSnapshot.exists()) {
         await userRef.set({
@@ -100,15 +102,49 @@ bot.on('interactionCreate', async (interaction) => {
     }
 });
 
+bot.on('guildCreate', async (guild) => {
+    const existingChannel = guild.channels.cache.find(channel => channel.name === 'chatninja');
+
+    if (!existingChannel) {
+        try {
+            const channel = await guild.channels.create({
+                name: 'chatninja',
+                type: ChannelType.GuildText,
+                permissionOverwrites: [
+                    {
+                        id: guild.id,
+                        allow: [PermissionsBitField.Flags.ViewChannel],
+                    },
+                ],
+            });
+        } catch (error) {
+            console.error("Error creating channel:", error);
+        }
+    }
+});
+
 bot.on('messageCreate', async (message) => {
     if (message.author.bot) return;
+
+    if (message.channel.name !== 'chatninja') {
+        return;
+    }
 
     const guildId = message.guild.id;
     const userId = message.author.id;
     const userRef = db.ref(`guilds/${guildId}/users/${userId}`);
 
     userRef.child('session').once('value', async (snapshot) => {
-        const session = snapshot.val();
+        let session = snapshot.val();
+
+        if (session === null) {
+            session = {
+                isActive: false,
+                isProcessing: false,
+                conversationHistory: []
+            };
+            await userRef.child('session').set(session);
+        }
 
         if (!session.isActive) {
             message.reply({ content: 'Please use the /ninja command to start a session.', ephemeral: true });
@@ -120,7 +156,6 @@ bot.on('messageCreate', async (message) => {
             return;
         }
 
-        // Set isProcessing flag
         await userRef.child('session').update({ isProcessing: true });
 
         try {
@@ -179,7 +214,7 @@ bot.on('messageCreate', async (message) => {
                 await userRef.child('session/conversationHistory').set(conversationLog);
             } catch (error) {
                 console.error("Error from OpenAI API's Servers:", error);
-                // Handle errors here
+                message.reply('Something went wrong. Please try again later.');
             }
         } catch (error) {
             console.error("Error from ChatNinja's Server:", error);
