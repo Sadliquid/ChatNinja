@@ -54,6 +54,10 @@ bot.once('ready', async () => {
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_SECRET_KEY });
 
 bot.on('interactionCreate', async (interaction) => {
+    if (process.env.DISABLE_API_KEY === "true") {
+        await interaction.reply({ content: 'API Key has been disabled. Please try again later.', ephemeral: true });
+        return;
+    }
     if (!interaction.isCommand()) return;
 
     if (interaction.channel.name !== 'chatninja') {
@@ -124,6 +128,12 @@ bot.on('guildCreate', async (guild) => {
 });
 
 bot.on('messageCreate', async (message) => {
+    if (process.env.DISABLE_API_KEY === "true") {
+        if (message.author.id !== bot.user.id) {
+            await message.reply({ content: 'API Key has been disabled. Please try again later.', ephemeral: true });
+        }
+        return;
+    }
     if (message.author.bot) return;
 
     if (message.channel.name !== 'chatninja') {
