@@ -122,72 +122,77 @@ bot.on('interactionCreate', async (interaction) => {
         await userRef.child('session').update({ configuring: true });
         await interaction.reply({ content: 'Please select a mode to activate ChatNinja:\n\n1.) Trial mode (5 trial prompts)\n\n2.) Provide your own OpenAI API Key\n\n3.) Override access with Access Key\n\nPlease choose 1, 2 or 3', ephemeral: true });
         const filter = m => m.author.id === interaction.user.id;
-        const collected = await interaction.channel.awaitMessages({ filter, max: 1, time: 60000, errors: ['time'] });
-        const response = collected.first().content;
-
-        if (response === "1") {
-            if (session.trialPrompts === 0) {
-                await interaction.editReply({ content: 'You have used up your free trial. Please provide your own OpenAI API Key or use an Access Key to override access.', ephemeral: true });
-                await userRef.child('session').update({ configuring: false });
-                return;
-            }
-            await interaction.editReply({ content: 'Trial mode activated! You have 5 trial prompts.', ephemeral: true });
-            await userRef.child('session').update({ mode: "trialMode", configuring: false });
-        } else if (response === "2") {
-            await interaction.editReply({ content: 'Please enter your OpenAI API Key:', ephemeral: true });
-            const apiKeyFilter = m => m.author.id === interaction.user.id;
-            const apiKeyCollected = await interaction.channel.awaitMessages({ apiKeyFilter, max: 1, time: 60000, errors: ['time'] });
-            const apiKeyResponse = apiKeyCollected.first().content;
-
-            const test_openai = new OpenAI({ apiKey: apiKeyResponse });
-
-            try {
-                const result = await test_openai.chat.completions.create({
-                    model: 'gpt-4o',
-                    messages: [
-                        {
-                            role: "user",
-                            content: "How many days are there in a week?"
-                        }
-                    ],
-                    max_tokens: 50
-                });
-
-                const assistantReply = result.choices[0].message.content;
-                if (assistantReply) {
-                    await interaction.editReply({ content: 'Your API Key has been verified and activated!', ephemeral: true });
-                    await userRef.child('session').update({ apiKey: apiKeyResponse, mode: "apiKeyMode", configuring: false });
+        try {
+            const collected = await interaction.channel.awaitMessages({ filter, max: 1, time: 60000, errors: ['time'] });
+            const response = collected.first().content;
+            if (response === "1") {
+                if (session.trialPrompts === 0) {
+                    await interaction.editReply({ content: 'You have used up your free trial. Please provide your own OpenAI API Key or use an Access Key to override access.', ephemeral: true });
+                    await userRef.child('session').update({ configuring: false });
+                    return;
                 }
-            }
-            catch (error) {
-                console.error("Error from OpenAI API's Servers:", error);
-                await interaction.editReply({ content: 'Invalid API Key. Please try again.', ephemeral: true });
+                await interaction.editReply({ content: 'Trial mode activated! You have 5 trial prompts.', ephemeral: true });
+                await userRef.child('session').update({ mode: "trialMode", configuring: false });
+            } else if (response === "2") {
+                await interaction.editReply({ content: 'Please enter your OpenAI API Key:', ephemeral: true });
+                const apiKeyFilter = m => m.author.id === interaction.user.id;
+                const apiKeyCollected = await interaction.channel.awaitMessages({ apiKeyFilter, max: 1, time: 60000, errors: ['time'] });
+                const apiKeyResponse = apiKeyCollected.first().content;
+    
+                const test_openai = new OpenAI({ apiKey: apiKeyResponse });
+    
+                try {
+                    const result = await test_openai.chat.completions.create({
+                        model: 'gpt-4o',
+                        messages: [
+                            {
+                                role: "user",
+                                content: "How many days are there in a week?"
+                            }
+                        ],
+                        max_tokens: 50
+                    });
+    
+                    const assistantReply = result.choices[0].message.content;
+                    if (assistantReply) {
+                        await interaction.editReply({ content: 'Your API Key has been verified and activated!', ephemeral: true });
+                        await userRef.child('session').update({ apiKey: apiKeyResponse, mode: "apiKeyMode", configuring: false });
+                    }
+                }
+                catch (error) {
+                    console.error("Error from OpenAI API's Servers:", error);
+                    await interaction.editReply({ content: 'Invalid API Key. Please try again.', ephemeral: true });
+                    await userRef.child('session').update({ configuring: false });
+                }
+            } else if (response === "3") {
+                await interaction.editReply({ content: 'Please enter your Access Key:', ephemeral: true });
+                const accessKeyFilter = m => m.author.id === interaction.user.id;
+                const accessKeyCollected = await interaction.channel.awaitMessages({ accessKeyFilter, max: 1, time: 60000, errors: ['time'] });
+                const accessKeyResponse = accessKeyCollected.first().content;
+    
+                const accessKeysRef = db.ref('accessKeys');
+                const accessKeysSnapshot = await accessKeysRef.once('value');
+                const accessKeys = accessKeysSnapshot.val();
+    
+                if (accessKeys === null || accessKeys[String(accessKeyResponse)] !== "key") {
+                    await interaction.editReply({ content: 'Invalid Access Key. Please try again.', ephemeral: true });
+                    await userRef.child('session').update({ configuring: false });
+                    return;
+                }
+    
+                await accessKeysRef.child(accessKeyResponse).remove();
+                const accessKey = require('uuid').v4();
+                await accessKeysRef.child(accessKey).set("key");
+                await interaction.editReply({ content: 'Access Key verified. Access overriden.', ephemeral: true });
+                await userRef.child('session').update({ mode: "overrideMode", configuring: false });
+    
+            } else {
+                await interaction.editReply({ content: 'Please choose an option from 1 to 3', ephemeral: true });
                 await userRef.child('session').update({ configuring: false });
             }
-        } else if (response === "3") {
-            await interaction.editReply({ content: 'Please enter your Access Key:', ephemeral: true });
-            const accessKeyFilter = m => m.author.id === interaction.user.id;
-            const accessKeyCollected = await interaction.channel.awaitMessages({ accessKeyFilter, max: 1, time: 60000, errors: ['time'] });
-            const accessKeyResponse = accessKeyCollected.first().content;
-
-            const accessKeysRef = db.ref('accessKeys');
-            const accessKeysSnapshot = await accessKeysRef.once('value');
-            const accessKeys = accessKeysSnapshot.val();
-
-            if (accessKeys === null || accessKeys[String(accessKeyResponse)] !== "key") {
-                await interaction.editReply({ content: 'Invalid Access Key. Please try again.', ephemeral: true });
-                await userRef.child('session').update({ configuring: false });
-                return;
-            }
-
-            await accessKeysRef.child(accessKeyResponse).remove();
-            const accessKey = require('uuid').v4();
-            await accessKeysRef.child(accessKey).set("key");
-            await interaction.editReply({ content: 'Access Key verified. Access overriden.', ephemeral: true });
-            await userRef.child('session').update({ mode: "overrideMode", configuring: false });
-
-        } else {
-            await interaction.editReply({ content: 'Please choose an option from 1 to 3', ephemeral: true });
+        } catch (error) {
+            console.error("Error from ChatNinja's Server:", error);
+            await interaction.editReply({ content: 'No response received. Please try again.', ephemeral: true });
             await userRef.child('session').update({ configuring: false });
         }
     } else {
