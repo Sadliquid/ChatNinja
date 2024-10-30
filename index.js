@@ -55,7 +55,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_SECRET_KEY });
 
 bot.on('interactionCreate', async (interaction) => {
     if (process.env.DISABLE_API_KEY === "true") {
-        if (interaction.author.id !== bot.user.id) {
+        if (interaction.user.id !== bot.user.id) {
             await interaction.reply({ content: 'API Key has been disabled. Please try again later.', ephemeral: true });
         }
         return;
