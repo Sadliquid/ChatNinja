@@ -61,7 +61,7 @@ bot.on('interactionCreate', async (interaction) => {
     if (!interaction.isCommand()) return;
 
     if (interaction.channel.name !== 'chatninja') {
-        await interaction.reply({ content: 'Please use ChatNinja in the #chatninja channel.', ephemeral: true });
+        await interaction.reply({ content: 'Please use ChatNinja in the existing `#chatninja` channel, or create one!', ephemeral: true });
         return;
     }
 
@@ -101,7 +101,7 @@ bot.on('interactionCreate', async (interaction) => {
 
     if (command === 'ninja') {
         if (session.mode === "unactivated") {
-            await interaction.reply({ content: 'Please use the /config command to activate ChatNinja first.', ephemeral: true });
+            await interaction.reply({ content: 'Please use the `/config` command to activate ChatNinja first.', ephemeral: true });
             return;
         }
         if (session.isActive) {
@@ -113,7 +113,7 @@ bot.on('interactionCreate', async (interaction) => {
         interaction.reply({ content: `Session active for ${username}! Type your message to chat.`, ephemeral: true });
     } else if (command === 'end') {
         if (session.mode === "unactivated") {
-            await interaction.reply({ content: 'Please use the /config command to activate ChatNinja first.', ephemeral: true });
+            await interaction.reply({ content: 'Please use the `/config` command to activate ChatNinja first.', ephemeral: true });
             return;
         }
         await userRef.child('session').update({ isActive: false, isProcessing: false });
@@ -170,7 +170,6 @@ bot.on('interactionCreate', async (interaction) => {
             const accessKeyCollected = await interaction.channel.awaitMessages({ accessKeyFilter, max: 1, time: 60000, errors: ['time'] });
             const accessKeyResponse = accessKeyCollected.first().content;
 
-            // check if the access key matches any records under accessKeys
             const accessKeysRef = db.ref('accessKeys');
             const accessKeysSnapshot = await accessKeysRef.once('value');
             const accessKeys = accessKeysSnapshot.val();
@@ -192,7 +191,7 @@ bot.on('interactionCreate', async (interaction) => {
             await userRef.child('session').update({ configuring: false });
         }
     } else {
-        await interaction.editReply({ content: 'Invalid command. Please use the /ninja command to start a session.', ephemeral: true });
+        await interaction.editReply({ content: 'Invalid command. Please use the `/ninja` command to start a session.', ephemeral: true });
         await userRef.child('session').update({ configuring: false });
     }
 });
@@ -252,12 +251,12 @@ bot.on('messageCreate', async (message) => {
         if (session.mode === "unactivated") return;
 
         if (!session.isActive) {
-            message.reply({ content: "Please use the /ninja command to start a session, or the /config command to activate ChatNinja first if you haven't done so yet.", ephemeral: true });
+            message.reply({ content: "Please use the `/ninja` command to start a session, or the `/config` command to activate ChatNinja first if you haven't done so yet.", ephemeral: true });
             return;
         }
 
         if (session.mode === "trialMode" && session.trialPrompts === 0) {
-            message.reply({ content: "You have exhausted your trial prompts. Please use the /config command to activate ChatNinja.", ephemeral: true });
+            message.reply({ content: "You have exhausted your trial prompts. Please use the `/config` command to activate ChatNinja.", ephemeral: true });
             return;
         }
 
