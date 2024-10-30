@@ -105,6 +105,8 @@ bot.on('interactionCreate', async (interaction) => {
     } else if (command === 'end') {
         await userRef.child('session').update({ isActive: false, isProcessing: false });
         interaction.reply({ content: 'Your session has ended!', ephemeral: true });
+    } else {
+        await interaction.reply({ content: 'Invalid command. Please use the /ninja command to start a session.', ephemeral: true });
     }
 });
 
@@ -226,11 +228,11 @@ bot.on('messageCreate', async (message) => {
                 await userRef.child('session/conversationHistory').set(conversationLog);
             } catch (error) {
                 console.error("Error from OpenAI API's Servers:", error);
-                message.reply('Something went wrong. Please try again later.');
+                message.reply("Something went wrong in OpenAI's Servers. Please try again later.");
             }
         } catch (error) {
             console.error("Error from ChatNinja's Server:", error);
-            message.reply('Something went wrong. Please try again later.');
+            message.reply("Something went wrong in ChatNinja's Servers. Please try again later.");
         } finally {
             await userRef.child('session').update({ isProcessing: false });
         }
