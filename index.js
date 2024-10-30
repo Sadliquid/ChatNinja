@@ -102,7 +102,7 @@ bot.on('interactionCreate', async (interaction) => {
 
         await userRef.child('session').update({ isActive: true });
         interaction.reply({ content: `Session started for ${username}! Type your message to chat.`, ephemeral: true });
-    } else if (command === 'quit') {
+    } else if (command === 'end') {
         await userRef.child('session').update({ isActive: false, isProcessing: false });
         interaction.reply({ content: 'Your session has ended!', ephemeral: true });
     }
