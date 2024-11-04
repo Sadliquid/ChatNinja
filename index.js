@@ -307,6 +307,7 @@ bot.on('messageCreate', async (message) => {
 
             try {
                 let result;
+                const maxLength = 1997;
                 if (imageUrls.length > 0) {
                     // If there are images, send them to the API
                     result = await model.chat.completions.create({
@@ -330,12 +331,25 @@ bot.on('messageCreate', async (message) => {
                 }
 
                 const assistantReply = result.choices[0].message.content;
-                message.reply(assistantReply);
-                if (session.mode === "trialMode") {
-                    await userRef.child('session').update({ trialPrompts: session.trialPrompts - 1 });
+                if (assistantReply.length > maxLength) {
+                    const chunks = [];
+                    for (let i = 0; i < assistantReply.length; i += maxLength) {
+                        chunks.push(assistantReply.substring(i, i + maxLength));
+                    }
+
+                    await message.reply(chunks[0] + "...");
+
+                    const remainingChunks = chunks.slice(1).map(chunk => `...${chunk}`).join('');
+
+                    await message.reply("The response was too long to send all at once. Here's more:\n\n" + remainingChunks);
+                } else {
+                    message.reply(assistantReply);
+                    if (session.mode === "trialMode") {
+                        await userRef.child('session').update({ trialPrompts: session.trialPrompts - 1 });
+                    }
+                    conversationLog.push({ role: 'assistant', content: assistantReply });
+                    await userRef.child('session/conversationHistory').set(conversationLog);
                 }
-                conversationLog.push({ role: 'assistant', content: assistantReply });
-                await userRef.child('session/conversationHistory').set(conversationLog);
             } catch (error) {
                 console.error("Error from OpenAI API's Servers:", error);
                 message.reply("Something went wrong in OpenAI's Servers. Please try again later.");
