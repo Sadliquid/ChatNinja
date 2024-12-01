@@ -2,11 +2,11 @@
 
 ChatNinja is a GPT-40 based Discord Chatbot, bringing the power of Generative AI right into your own Discord Servers.
 
-### 🥷🏼 Swift and precise like a Ninja, 
+### 🥷🏼 Swift and precise, like a Ninja
 Powered by OpenAI's GPT-4o model, ChatNinja responds with ultra-high precision and speed.
 
 ### ⚡️ Plug and play
-Just use the `/ninja` command to start chatting with ChatNinja. It's as simple as that. Zero configuration needed.
+Just use the `/ninja` command to start chatting with ChatNinja.
 
 ### 🔊 Commands
 `/ninja`: ChatNinja starts up and is ready to have a wholesome chat with you!
