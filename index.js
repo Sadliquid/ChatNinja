@@ -22,8 +22,6 @@ const bot = new Client({
 });
 
 bot.once('ready', async () => {
-    console.log(`Logged in as ${bot.user.tag}!`);
-
     bot.guilds.cache.forEach(async (guild) => {
         await db.ref(`guilds/${guild.id}`).set({
             guildName: guild.name
@@ -40,17 +38,17 @@ bot.once('ready', async () => {
             },
             {
                 name: 'config',
-                description: 'Setup your ChatNinja experience',
+                description: 'Activate ChatNinja',
             }
         ]);
     });
 
     app.get('/', (req, res) => {
-        res.status(200).send("ChatNinja is online!");
+        res.status(200).send("Welcome to the ChatNinja Backend Server!");
     });
 
     app.listen(port, () => {
-        console.log("ChatNinja is listening at http://localhost:" + port);
+        console.log("ChatNinja is running on http://localhost:" + port);
         console.log("");
     });
 });
@@ -61,7 +59,7 @@ bot.on('interactionCreate', async (interaction) => {
     if (!interaction.isCommand()) return;
 
     if (interaction.channel.name !== 'chatninja') {
-        await interaction.reply({ content: 'Please use ChatNinja in the existing `#chatninja` channel, or create one!', ephemeral: true });
+        await interaction.reply({ content: 'Please use ChatNinja in a `#chatninja` channel, or create one!', ephemeral: true });
         return;
     }
 
@@ -72,7 +70,7 @@ bot.on('interactionCreate', async (interaction) => {
 
     if (process.env.DISABLE_API_KEY === "true") {
         if (interaction.user.id !== bot.user.id) {
-            await interaction.reply({ content: 'API Key has been disabled. Please try again later.', ephemeral: true });
+            await interaction.reply({ content: 'The ChatNinja API has been disabled. Please try again later.', ephemeral: true });
         }
         return;
     }
@@ -105,12 +103,12 @@ bot.on('interactionCreate', async (interaction) => {
             return;
         }
         if (session.isActive) {
-            await interaction.reply({ content: 'You already have an active session! Start chatting', ephemeral: true });
+            await interaction.reply({ content: 'You already have an active session! Start chatting.', ephemeral: true });
             return;
         }
 
         await userRef.child('session').update({ isActive: true });
-        interaction.reply({ content: `Session active for ${username}! Type your message to chat.`, ephemeral: true });
+        interaction.reply({ content: `Session active for ${username}! Send a message to start chatting.`, ephemeral: true });
     } else if (command === 'end') {
         if (session.mode === "unactivated") {
             await interaction.reply({ content: 'Please use the `/config` command to activate ChatNinja first.', ephemeral: true });
@@ -119,8 +117,13 @@ bot.on('interactionCreate', async (interaction) => {
         await userRef.child('session').update({ isActive: false, isProcessing: false });
         interaction.reply({ content: 'Your session has ended!', ephemeral: true });
     } else if (command === 'config') {
+        if (session.mode === "overrideMode") {
+            await interaction.reply({ content: 'You already have unrestricted access to ChatNinja. Start chatting!', ephemeral: true });
+            return;
+        }
+
         await userRef.child('session').update({ configuring: true });
-        await interaction.reply({ content: 'Please select a mode to activate ChatNinja:\n\n1.) Trial mode (5 trial prompts)\n\n2.) Provide your own OpenAI API Key\n\n3.) Override access with Access Key\n\nPlease choose 1, 2 or 3', ephemeral: true });
+        await interaction.reply({ content: 'Please select a mode to activate ChatNinja:\n\n1.) Trial mode (5 trial prompts).\n\n2.) Provide your own OpenAI API Key.\n\n3.) Override access with an access key.\n\nPlease choose 1, 2 or 3.', ephemeral: true });
         const filter = m => m.author.id === interaction.user.id;
         try {
             const collected = await interaction.channel.awaitMessages({ filter, max: 1, time: 60000, errors: ['time'] });
@@ -138,9 +141,9 @@ bot.on('interactionCreate', async (interaction) => {
                 const apiKeyFilter = m => m.author.id === interaction.user.id;
                 const apiKeyCollected = await interaction.channel.awaitMessages({ apiKeyFilter, max: 1, time: 60000, errors: ['time'] });
                 const apiKeyResponse = apiKeyCollected.first().content;
-    
+
                 const test_openai = new OpenAI({ apiKey: apiKeyResponse });
-    
+
                 try {
                     const result = await test_openai.chat.completions.create({
                         model: 'gpt-4o-mini',
@@ -152,7 +155,7 @@ bot.on('interactionCreate', async (interaction) => {
                         ],
                         max_tokens: 50
                     });
-    
+
                     const assistantReply = result.choices[0].message.content;
                     if (assistantReply) {
                         await interaction.editReply({ content: 'Your API Key has been verified and activated!', ephemeral: true });
@@ -160,39 +163,37 @@ bot.on('interactionCreate', async (interaction) => {
                     }
                 }
                 catch (error) {
-                    console.error("Error from OpenAI API's Servers:", error);
                     await interaction.editReply({ content: 'Invalid API Key. Please try again.', ephemeral: true });
                     await userRef.child('session').update({ configuring: false });
                 }
             } else if (response === "3") {
-                await interaction.editReply({ content: 'Please enter your Access Key:', ephemeral: true });
+                await interaction.editReply({ content: 'Please send your access key in your next message.', ephemeral: true });
                 const accessKeyFilter = m => m.author.id === interaction.user.id;
                 const accessKeyCollected = await interaction.channel.awaitMessages({ accessKeyFilter, max: 1, time: 60000, errors: ['time'] });
                 const accessKeyResponse = accessKeyCollected.first().content;
-    
+
                 const accessKeysRef = db.ref('accessKeys');
                 const accessKeysSnapshot = await accessKeysRef.once('value');
                 const accessKeys = accessKeysSnapshot.val();
-    
+
                 if (accessKeys === null || accessKeys[String(accessKeyResponse)] !== "key") {
-                    await interaction.editReply({ content: 'Invalid Access Key. Please try again.', ephemeral: true });
+                    await interaction.editReply({ content: 'Invalid access key. Please try again.', ephemeral: true });
                     await userRef.child('session').update({ configuring: false });
                     return;
                 }
-    
+
                 await accessKeysRef.child(accessKeyResponse).remove();
                 const accessKey = require('uuid').v4();
                 await accessKeysRef.child(accessKey).set("key");
-                await interaction.editReply({ content: 'Access Key verified. Access overriden.', ephemeral: true });
+                await interaction.editReply({ content: 'Verification succeeded - Welcome back.', ephemeral: true });
                 await userRef.child('session').update({ mode: "overrideMode", configuring: false });
-    
+
             } else {
-                await interaction.editReply({ content: 'Please choose an option from 1 to 3', ephemeral: true });
+                await interaction.editReply({ content: 'Please choose an option from 1 to 3.', ephemeral: true });
                 await userRef.child('session').update({ configuring: false });
             }
         } catch (error) {
-            console.error("Error from ChatNinja's Server:", error);
-            await interaction.editReply({ content: 'No response received. Please try again.', ephemeral: true });
+            await interaction.editReply({ content: "Sorry, ChatNinja didn't receive a response. Please try again.", ephemeral: true });
             await userRef.child('session').update({ configuring: false });
         }
     } else {
@@ -206,7 +207,7 @@ bot.on('guildCreate', async (guild) => {
 
     if (!existingChannel) {
         try {
-            const channel = await guild.channels.create({
+            await guild.channels.create({
                 name: 'chatninja',
                 type: ChannelType.GuildText,
                 permissionOverwrites: [
@@ -217,7 +218,7 @@ bot.on('guildCreate', async (guild) => {
                 ],
             });
         } catch (error) {
-            console.error("Error creating channel:", error);
+            console.error(`Error creating #chatninja channel for Guild with GuildID: ${guild.id}`, error);
         }
     }
 });
@@ -225,7 +226,7 @@ bot.on('guildCreate', async (guild) => {
 bot.on('messageCreate', async (message) => {
     if (process.env.DISABLE_API_KEY === "true") {
         if (message.author.id !== bot.user.id) {
-            await message.reply({ content: 'API Key has been disabled. Please try again later.', ephemeral: true });
+            await message.reply({ content: 'The ChatNinja API has been disabled. Please try again later.', ephemeral: true });
         }
         return;
     }
@@ -256,7 +257,7 @@ bot.on('messageCreate', async (message) => {
         if (session.mode === "unactivated") return;
 
         if (!session.isActive) {
-            message.reply({ content: "Please use the `/ninja` command to start a session, or the `/config` command to activate ChatNinja first if you haven't done so yet.", ephemeral: true });
+            message.reply({ content: "Please use the `/ninja` command to start a session, or the `/config` command to activate ChatNinja.", ephemeral: true });
             return;
         }
 
@@ -273,7 +274,7 @@ bot.on('messageCreate', async (message) => {
         const model = ((user_openai !== null) && (session.mode !== "overrideMode")) ? user_openai : openai;
 
         if (session.isProcessing) {
-            message.reply({ content: 'Please wait for ChatNinja to respond to previous messages.', ephemeral: true });
+            message.reply({ content: 'Please wait for ChatNinja to respond to previous messages first.', ephemeral: true });
             return;
         }
 
@@ -291,7 +292,7 @@ bot.on('messageCreate', async (message) => {
                     if (attachment.contentType && attachment.contentType.startsWith("image/")) {
                         imageUrls.push(attachment.url);
                     } else {
-                        message.reply("Sorry, all attachments must be images.");
+                        message.reply("Sorry, all attachments must be in valid image format.");
                         return;
                     }
                 });
@@ -309,7 +310,6 @@ bot.on('messageCreate', async (message) => {
                 let result;
                 const maxLength = 1997;
                 if (imageUrls.length > 0) {
-                    // If there are images, send them to the API
                     result = await model.chat.completions.create({
                         model: 'gpt-4o',
                         messages: [
@@ -322,7 +322,6 @@ bot.on('messageCreate', async (message) => {
                         max_tokens: 750
                     });
                 } else {
-                    // If there's no image, just send the text message
                     result = await model.chat.completions.create({
                         model: 'gpt-4o-mini',
                         messages: conversationLog,
@@ -351,11 +350,9 @@ bot.on('messageCreate', async (message) => {
                     await userRef.child('session/conversationHistory').set(conversationLog);
                 }
             } catch (error) {
-                console.error("Error from OpenAI API's Servers:", error);
                 message.reply("Something went wrong in OpenAI's Servers. Please try again later.");
             }
         } catch (error) {
-            console.error("Error from ChatNinja's Server:", error);
             message.reply("Something went wrong in ChatNinja's Servers. Please try again later.");
         } finally {
             await userRef.child('session').update({ isProcessing: false });
