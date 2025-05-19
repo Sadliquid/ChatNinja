@@ -6,12 +6,15 @@ const express = require('express');
 const app = express();
 const port = process.env.PORT;
 
-firebase.initializeApp({
+const db = firebase.initializeApp({
     credential: firebase.credential.cert(require('./serviceAccountKeyCN.json')),
     databaseURL: process.env.DB_URL
-});
+}).database();
 
-const db = firebase.database();
+const CS_DB = firebase.initializeApp({
+    credential: firebase.credential.cert(require('./CS_ServiceAccountKey.json')),
+    databaseURL: process.env.CS_DB_URL
+}).database();
 
 const bot = new Client({
     intents: [
@@ -68,9 +71,12 @@ bot.on('interactionCreate', async (interaction) => {
     const username = interaction.user.username;
     const command = interaction.commandName;
 
-    if (process.env.DISABLE_API_KEY === "true") {
+    const serviceSnapshot = await CS_DB.ref(`services/Chatninja`).once('value');
+    const serviceStatus = serviceSnapshot.val();
+
+    if (!serviceStatus) {
         if (interaction.user.id !== bot.user.id) {
-            await interaction.reply({ content: 'The ChatNinja API has been disabled. Please try again later.', ephemeral: true });
+            await interaction.reply({ content: 'ChatNinja has been disabled. Please try again later.', ephemeral: true });
         }
         return;
     }
