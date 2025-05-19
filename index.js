@@ -9,12 +9,12 @@ const port = process.env.PORT;
 const db = firebase.initializeApp({
     credential: firebase.credential.cert(require('./serviceAccountKeyCN.json')),
     databaseURL: process.env.DB_URL
-}).database();
+}, 'db').database();
 
 const CS_DB = firebase.initializeApp({
     credential: firebase.credential.cert(require('./CS_ServiceAccountKey.json')),
     databaseURL: process.env.CS_DB_URL
-}).database();
+}, 'CS_DB').database();
 
 const bot = new Client({
     intents: [
