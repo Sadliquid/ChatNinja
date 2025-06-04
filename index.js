@@ -357,9 +357,11 @@ bot.on('messageCreate', async (message) => {
                 }
             } catch (error) {
                 message.reply("Something went wrong in OpenAI's Servers. Please try again later.");
+                console.log(error);
             }
         } catch (error) {
             message.reply("Something went wrong in ChatNinja's Servers. Please try again later.");
+            console.log(error);
         } finally {
             await userRef.child('session').update({ isProcessing: false });
         }
